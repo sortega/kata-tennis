@@ -1,28 +1,33 @@
 (ns tennis.core)
 
-(def new-set [0 0])
+(def new-game [0 0])
 
-(defn winner [[score1 score2]]
-  (cond
-    (= score1 :win) :p1
-    (= score2 :win) :p2))
+(defn finished [[score1 score2]]
+  (and (>= (max score1 score2) 4)
+       (>= (Math/abs (- score1 score2)) 2)))
 
-(defn score-p1 [[score1 score2 :as s]]
-  (when (winner s)
+(defn player-score [score player]
+  (let [[s1 s2] (if (= player :p1) score (reverse score))]
+    (if (< s1 3)
+      (nth [0 15 30] s1)
+      (case (- s1 s2)
+        -2  :lose
+        -1  40
+         0  :deuce
+         1  (if (= s1 3) 40 :advantage)
+         2  :win
+            (if (< s1 s2) :lose :win)))))
+
+(defn winner [score]
+  (when (finished score)
+    (if (= :win (player-score score :p1)) :p1 :p2)))
+
+(defn add-point [score player]
+  (when (finished score)
     (throw (IllegalArgumentException. "Set already finished")))
-  (cond
-    (= :advantage score1)    [:win :lose]
-    (= :advantage score2)    [:deuce :deuce]
-    (= :deuce score1 score2) [:advantage 40]
-    (and (= 30 score1)
-         (= 40 score2))      [:deuce :deuce]
-    (= 40 score1)            [:win :lose]
-    :else                    [(+ score1 10) score2]))
+  (update-in score 
+             ({:p1 [0], :p2 [1]} player)
+             inc))
 
-(def score-p2 (comp reverse score-p1 reverse))
-
-(defn score [points player]
-  ((if (= player :p1) score-p1 score-p2) points))
-
-(defn set-winner [scorers]
-  (winner (reduce score new-set scorers)))
+(defn game [scorers]
+  (winner (reduce add-point new-game scorers)))
